@@ -63,7 +63,7 @@ class StartPage(QWidget):
         pi = QLabel("π")
         pi.setFont(theme.mono_font(26, bold=True))
         pi.setStyleSheet(f"color:{theme.GOLD.name()};")
-        title = QLabel("EXPLORER")
+        title = QLabel("SEARCH")
         title.setFont(theme.mono_font(24, bold=True, spacing=9))
         title.setStyleSheet("color:#f2f5ff;")
         row = QHBoxLayout()
