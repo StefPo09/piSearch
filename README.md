@@ -24,9 +24,12 @@ python main.py --digits 2000000   # skip the start screen
 
 ## Using it
 
-* **Start screen** - choose up to 1 billion digits and press COMPUTE. Large
-  selections need substantial memory and can take a very long time. Number/date
-  searches scan the full computed digit string.
+* **Start screen** - choose up to 1 billion digits and press COMPUTE. Before
+  starting, the app estimates peak working memory and blocks selections that
+  exceed currently available RAM, reserving 1 GiB for the operating system.
+  The estimate is deliberately conservative, not a guarantee; Windows may still
+  use its page file. If RAM cannot be detected, computations are limited to
+  100,000 digits. Number/date searches scan the full computed digit string.
 * **Tabs** - 01 Numbers, 02 Letters, 03 Colors, 04 Black & White.
 * **Mouse** - drag to pan, wheel to zoom, double-click to zoom in. Keys: arrows, `+`/`-`, Home.
 * **Search** - `ANY NUMBER` (digits), `DATE` (DD/MM/YYYY -> `DDMMYYYY`), `WORD` (letters tab).

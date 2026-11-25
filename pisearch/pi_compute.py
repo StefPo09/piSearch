@@ -63,6 +63,11 @@ def _isqrt(n):
     return gmpy2.isqrt(n) if HAVE_GMPY2 else math.isqrt(n)
 
 
+def has_expected_digit_count(digits: str, expected: int) -> bool:
+    """Check that a computed result contains exactly the requested decimals."""
+    return len(digits) == expected
+
+
 def compute_pi_digits(n_digits: int, progress: Optional[ProgressCb] = None) -> str:
     """Return the first ``n_digits`` decimals of pi (without the leading '3').
 

@@ -13,8 +13,9 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget
 from . import search as S
 from . import theme
 from .canvas import Mode
-from .pi_compute import HAVE_GMPY2, Cancelled, compute_pi_digits
+from .pi_compute import HAVE_GMPY2, Cancelled, compute_pi_digits, has_expected_digit_count
 from .recorder import HAVE_PIL, Recorder
+from .resources import available_physical_memory, resource_warning
 from .shape_dialog import ShapeDialog
 from .widgets import ExplorerPage, InfoCard, StartPage
 
@@ -83,6 +84,10 @@ class MainWindow(QMainWindow):
     def compute(self, n_digits: int) -> None:
         if self.worker is not None:
             return
+        warning = resource_warning(n_digits, available_physical_memory())
+        if warning:
+            self.start.set_message(warning, error=True)
+            return
         self.start.set_busy(True)
         self.start.set_message("")
         self.worker = PiWorker(n_digits)
@@ -92,8 +97,18 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def _on_computed(self, digits: str) -> None:
+        requested = self.worker.n if self.worker is not None else None
         self._join_worker()
         self.start.set_busy(False)
+        if requested is None or not has_expected_digit_count(digits, requested):
+            actual = len(digits)
+            expected = f"{requested:,}" if requested is not None else "the requested"
+            self.start.set_message(
+                f"ERROR · expected {expected} digits but computed {actual:,}; "
+                "the result was not loaded.",
+                error=True,
+            )
+            return
         self.canvas.set_data(digits)
         self.canvas.mode = Mode.NUMBERS
         self.explorer.tabs.set_mode(Mode.NUMBERS)

@@ -5,7 +5,13 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from pisearch.pi_compute import compute_pi_digits
+from pisearch.pi_compute import compute_pi_digits, has_expected_digit_count
+from pisearch.resources import (
+    MEMORY_RESERVE_BYTES,
+    UNKNOWN_MEMORY_MAX_DIGITS,
+    estimated_peak_bytes,
+    resource_warning,
+)
 from pisearch import search as S
 from pisearch.widgets import DIGIT_CHOICES
 
@@ -17,8 +23,28 @@ def test_digit_choices_reach_one_billion():
     assert DIGIT_CHOICES == sorted(set(DIGIT_CHOICES))
 
 
+def test_memory_budget_blocks_requests_that_exceed_available_ram():
+    required = estimated_peak_bytes(1_000_000)
+    assert resource_warning(1_000_000, required) is None
+    warning = resource_warning(1_000_000, required - 1)
+    assert warning is not None
+    assert "page-file" in warning
+
+
+def test_memory_budget_reserves_headroom_and_falls_back_conservatively():
+    assert estimated_peak_bytes(0) == MEMORY_RESERVE_BYTES
+    assert resource_warning(UNKNOWN_MEMORY_MAX_DIGITS, None) is None
+    assert resource_warning(UNKNOWN_MEMORY_MAX_DIGITS + 1, None) is not None
+
+
 def test_digits_known_prefix():
     assert compute_pi_digits(50) == PI_50
+
+
+def test_computed_output_must_match_requested_digit_count():
+    assert has_expected_digit_count("12345", 5)
+    assert not has_expected_digit_count("1234", 5)
+    assert not has_expected_digit_count("123456", 5)
 
 
 def test_known_tail_1000():

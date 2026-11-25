@@ -82,6 +82,7 @@ class StartPage(QWidget):
         self.msg.setFont(theme.mono_font(10, spacing=1.6))
         self.msg.setStyleSheet(f"color:{theme.AMBER.name()};")
         self.msg.setAlignment(Qt.AlignCenter)
+        self.msg.setWordWrap(True)
         self.msg.setFixedHeight(90)
 
         self.bar = _ThinProgress()
