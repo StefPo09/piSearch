@@ -313,11 +313,17 @@ class InfoCard(QFrame):
 
 
 class ExplorerPage(QWidget):
+    backRequested = Signal()
+
     def __init__(self):
         super().__init__()
         self.canvas = PiCanvas(self)
         self.tabs = TabBar()
         self.tabs.setParent(self)
+        self.back = _ghost("← NEW SEARCH")
+        self.back.setObjectName("backToStartBtn")
+        self.back.setParent(self)
+        self.back.clicked.connect(self.backRequested)
         self.toolbar = Toolbar()
         self.toolbar.setParent(self)
         self.card = InfoCard(self)
@@ -328,6 +334,8 @@ class ExplorerPage(QWidget):
         self.canvas.setGeometry(0, 0, w, h)
         self.tabs.adjustSize()
         self.tabs.move(16, 14)
+        self.back.adjustSize()
+        self.back.move(w - self.back.width() - 16, 14)
         tb_h = 50
         self.toolbar.setGeometry(16, h - tb_h - 16, w - 32, tb_h)
         self.card.fit(min(780, w - 60))

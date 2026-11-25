@@ -140,6 +140,27 @@ class PiCanvas(QWidget):
         self._anim = None
         self.update()
 
+    def clear_data(self) -> None:
+        """Release computed digits and all canvas data derived from them."""
+        self._timer.stop()
+        self.digits = ""
+        self.darr = None
+        self.frames = {"A": "", "B": ""}
+        self.color_w = 1000
+        self.mode = Mode.NUMBERS
+        self.frame = "A"
+        self.highlight = None
+        self.cx = 0.0
+        self.cy = 0.0
+        self.z = 14.0
+        self._tex.clear()
+        self._adv_cache.clear()
+        self._drag = None
+        self._anim = None
+        self._frame_times.clear()
+        self._fps = 0.0
+        self.update()
+
     def has_data(self) -> bool:
         return self.darr is not None and len(self.digits) > 0
 

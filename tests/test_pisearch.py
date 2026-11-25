@@ -4,9 +4,14 @@ import sys
 import numpy as np
 import pytest
 
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from pisearch.app import PiWorker
+from PySide6.QtWidgets import QApplication
+
+from pisearch.app import MainWindow, PiWorker
+from pisearch.canvas import Mode
 from pisearch.pi_compute import Cancelled, compute_pi_digits, has_expected_digit_count
 from pisearch.resources import (
     MEMORY_RESERVE_BYTES,
@@ -18,6 +23,7 @@ from pisearch import search as S
 from pisearch.widgets import DIGIT_CHOICES
 
 PI_50 = "14159265358979323846264338327950288419716939937510"
+_APP = QApplication.instance() or QApplication([])
 
 
 def test_digit_choices_reach_one_billion():
@@ -64,6 +70,30 @@ def test_worker_emits_cancelled_without_emitting_partial_digits():
     worker.run()
 
     assert events == ["cancelled"]
+
+
+def test_back_to_start_clears_computed_digits_and_derived_data():
+    window = MainWindow()
+    window.canvas.set_data("314159265358979323846")
+    window.canvas._tex["test"] = object()
+    window.canvas._adv_cache[12] = object()
+    window.canvas.set_mode(Mode.LETTERS)
+    window.toolbar.edit.setText("12345")
+    window.card.show_card("found", "FOUND", "test result")
+    window.stack.setCurrentIndex(1)
+
+    window.explorer.back.click()
+
+    assert window.stack.currentWidget() is window.start
+    assert not window.canvas.has_data()
+    assert window.canvas.digits == ""
+    assert window.canvas.darr is None
+    assert window.canvas.frames == {"A": "", "B": ""}
+    assert window.canvas._tex == {}
+    assert window.canvas._adv_cache == {}
+    assert window.canvas.mode == Mode.NUMBERS
+    assert window.toolbar.edit.text() == ""
+    assert window.card.isHidden()
 
 
 def test_known_tail_1000():

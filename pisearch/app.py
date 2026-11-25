@@ -77,6 +77,7 @@ class MainWindow(QMainWindow):
 
         self.start.computeRequested.connect(self.compute)
         self.start.cancelRequested.connect(self.cancel_compute)
+        self.explorer.backRequested.connect(self.back_to_start)
         self.explorer.tabs.modeChanged.connect(self.on_tab)
         self.toolbar.searchRequested.connect(self.on_search)
         self.toolbar.shapeClicked.connect(self.on_shape)
@@ -168,6 +169,13 @@ class MainWindow(QMainWindow):
         if self.recorder.recording:
             self.toolbar.set_recording(False)
             self.recorder.stop()
+        self.card.hide()
+        self.card.title.clear()
+        self.card.body.clear()
+        self.toolbar.edit.clear()
+        self.toolbar.set_letters(False)
+        self.explorer.tabs.set_mode(Mode.NUMBERS)
+        self.canvas.clear_data()
         self.start.set_message("")
         self.stack.setCurrentIndex(0)
 

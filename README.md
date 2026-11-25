@@ -42,6 +42,7 @@ python main.py --digits 2000000   # skip the start screen
 * **SHAPE** - paint a small pattern with digit colours; it is searched in the COLORS grid.
 * **REC** - records the canvas to an animated GIF in `recordings/` (30 s max).
 * **+HUD** - overlay with view, zoom, position and FPS.
+* **← NEW SEARCH** - return to the start screen and clear the computed digits from memory.
 * **Ctrl+N** - back to the start screen, **Ctrl+L** - focus the search box.
 
 ## Tests
