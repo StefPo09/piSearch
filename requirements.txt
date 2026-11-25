@@ -1,0 +1,5 @@
+PySide6>=6.5
+numpy>=1.24
+Pillow>=10.0
+# optional but strongly recommended: much faster pi computation (1M digits in <1 s)
+gmpy2>=2.1
