@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 from PySide6.QtCore import QThread, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget
@@ -197,7 +198,7 @@ class MainWindow(QMainWindow):
         if not self.canvas.has_data():
             return
         if mode_label == "WORD":
-            match = S.search_word(self.canvas.frames, text)
+            match = S.search_word(self.canvas.digits, text)
         else:
             q = S.normalize_date(text) if mode_label == "DATE" else S.normalize_number(text)
             match = S.search_digits(self.canvas.digits, q)
@@ -224,18 +225,43 @@ class MainWindow(QMainWindow):
             self.card.show_card("notfound", "CHECK YOUR INPUT", m.error)
             return
         if m.found:
+            display_match = m
             if m.kind == "letters":
-                self._switch_tab(Mode.LETTERS, m.frame)
+                frame = m.frame or "A"
+                if m.position > len(self.canvas.frames[frame]):
+                    self._switch_tab(Mode.NUMBERS)
+                    digit_start = m.digit_pos - 1
+                    display_match = S.Match(
+                        "digits",
+                        m.query,
+                        True,
+                        position=m.digit_pos,
+                        digit_pos=m.digit_pos,
+                        indices=np.arange(
+                            digit_start,
+                            digit_start + 2 * len(m.query),
+                            dtype=np.int64,
+                        ),
+                        searched=len(self.canvas.digits),
+                        expected=m.expected,
+                    )
+                else:
+                    self._switch_tab(Mode.LETTERS, m.frame)
             elif self.canvas.mode == Mode.LETTERS:
                 self._switch_tab(Mode.NUMBERS)
-            self.canvas.set_highlight(m)
+            self.canvas.set_highlight(display_match)
             self.canvas.fly_to_highlight()
             n = f"<b style='color:#e6ebfa;'>{m.count:,}</b>"
             if m.kind == "digits":
                 body = (f"{g(m.query)} ({len(m.query)} digits) · {n} occurrence(s) in {m.searched:,} digits")
                 title = f"FOUND — POSITION {m.position:,}"
             elif m.kind == "letters":
-                body = (f"‘{g(m.query)}’ · Frame {m.frame} · digit {m.digit_pos:,} of π · {n} occurrence(s)")
+                body = (
+                    f"‘{g(m.query)}’ · Frame {m.frame} · digit {m.digit_pos:,} of π · "
+                    f"{n} occurrence(s) · searched up to {m.searched:,} letters per frame"
+                )
+                if display_match is not m:
+                    body += "<br>Beyond the letter preview; showing the matching digit pairs."
                 title = f"FOUND — LETTER {m.position:,}"
             else:
                 body = f"{g('SHAPE')} ({m.cells} cells) · {n} occurrence(s) in {m.searched:,} digits"
@@ -245,13 +271,18 @@ class MainWindow(QMainWindow):
 
         self.canvas.set_highlight(None)
         exp = f"<b style='color:{theme.GOLD.name()};'>{m.expected:,}</b>"
-        tail = f"Expected around {exp} digits deep. Beyond this page, but a desktop program could find it."
         if m.kind == "letters":
-            head = f"“{g(m.query)}” ({len(m.query)} letters) isn’t in the first {m.searched:,} letters of either frame."
+            head = (
+                f"“{g(m.query)}” ({len(m.query)} letters) wasn’t found in up to "
+                f"{m.searched:,} letters per frame."
+            )
+            tail = f"A word this length is expected around {exp} letters into π."
         elif m.kind == "digits":
             head = f"“{g(m.query)}” ({len(m.query)} digits) isn’t in the first {m.searched:,} digits."
+            tail = f"Expected around {exp} digits deep. Beyond this page, but a desktop program could find it."
         else:
             head = f"This {g('SHAPE')} ({m.cells} cells) isn’t in the first {m.searched:,} digits."
+            tail = f"Expected around {exp} digits deep. Beyond this page, but a desktop program could find it."
         self.card.show_card("notfound", "NOT FOUND", f"{head}<br>{tail}")
 
     # ----------------------------------------------------------- HUD / REC

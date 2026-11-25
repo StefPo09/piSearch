@@ -37,8 +37,9 @@ python main.py --digits 2000000   # skip the start screen
 * **Search** - `ANY NUMBER` (digits), `DATE` (DD/MM/YYYY -> `DDMMYYYY`), `WORD` (letters tab).
   Press Enter or SEARCH. Positions are counted in the decimals of pi (1 = the first digit after "3.").
 * **Letters** - every pair of digits becomes a letter (`value mod 26`, 00=A, 01=B, 02=C...).
-  Frame A reads pairs from the first decimal, Frame B starts one digit later. Frame A is searched first,
-  up to 100,000 letters per frame.
+  Frame A reads pairs from the first decimal, Frame B starts one digit later. WORD searches scan all
+  computed digits in both frames, with Frame A prioritized; the canvas letter preview remains capped
+  at 100,000 letters per frame. Matches beyond the preview are shown as digit pairs in the Numbers view.
 * **SHAPE** - paint a small pattern with digit colours; it is searched in the COLORS grid.
 * **REC** - records the canvas to an animated GIF in `recordings/` (30 s max).
 * **+HUD** - overlay with view, zoom, position and FPS.

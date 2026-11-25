@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
 LETTER_LIMIT = 100_000  # letters kept per frame ("first 100,000 letters of either frame")
+WORD_SEARCH_CHUNK = 1_000_000
 FRAMES = ("A", "B")
 
 
@@ -128,15 +129,8 @@ def search_digits(digits: str, query: str) -> Match:
     )
 
 
-def search_word(frames: dict, query: str) -> Match:
-    word = re.sub(r"[^A-Za-z]", "", query).upper()
-    if not word:
-        return Match("letters", query, False, error="Letters only (A-Z).")
+def _search_word_in_frames(frames: Mapping[str, str], word: str, expected: int) -> Match:
     searched = max(len(frames["A"]), len(frames["B"]))
-    expected = (26 ** len(word)) * 2
-    # Frame A is searched first; frame B is only used when A has no match
-    # (this is how the original app behaves: PIE is reported at letter 10,962
-    # of frame A even though frame B has an earlier occurrence).
     for name, offset in (("A", 0), ("B", 1)):
         text = frames[name]
         i = text.find(word)
@@ -150,6 +144,83 @@ def search_word(frames: dict, query: str) -> Match:
                 frame=name,
                 indices=np.arange(i, i + len(word), dtype=np.int64),
                 count=_count_overlapping(text, word),
+                searched=searched,
+                expected=expected,
+            )
+    return Match("letters", word, False, searched=searched, expected=expected)
+
+
+def _search_word_in_digit_frame(
+    digits: str, offset: int, word: bytes, chunk_size: int
+) -> Tuple[Optional[int], int, int]:
+    """Return (first letter index, occurrence count, frame length)."""
+    frame_length = max(0, (len(digits) - offset) // 2)
+    step = max(chunk_size, len(word))
+    carry = b""
+    first = None
+    count = 0
+    letter_start = 0
+
+    while letter_start < frame_length:
+        letter_end = min(frame_length, letter_start + step)
+        digit_start = offset + letter_start * 2
+        digit_end = offset + letter_end * 2
+        pairs = np.frombuffer(
+            digits[digit_start:digit_end].encode("ascii"), dtype=np.uint8
+        ) - 48
+        codes = ((pairs[::2] * 10 + pairs[1::2]) % 26 + 65).astype(np.uint8)
+        chunk = carry + codes.tobytes()
+        values = np.frombuffer(chunk, dtype=np.uint8)
+        starts = len(values) - len(word) + 1
+        if starts > 0:
+            matches = np.ones(starts, dtype=bool)
+            for i, value in enumerate(word):
+                matches &= values[i : i + starts] == value
+            matches_count = int(np.count_nonzero(matches))
+            if matches_count:
+                if first is None:
+                    first = letter_start - len(carry) + int(np.argmax(matches))
+                count += matches_count
+
+        carry = chunk[-(len(word) - 1) :] if len(word) > 1 else b""
+        letter_start = letter_end
+
+    return first, count, frame_length
+
+
+def search_word(
+    digits_or_frames: Union[str, Mapping[str, str]],
+    query: str,
+    chunk_size: int = WORD_SEARCH_CHUNK,
+) -> Match:
+    word = re.sub(r"[^A-Za-z]", "", query).upper()
+    if not word:
+        return Match("letters", query, False, error="Letters only (A-Z).")
+    expected = (26 ** len(word)) * 2
+
+    if not isinstance(digits_or_frames, str):
+        return _search_word_in_frames(digits_or_frames, word, expected)
+
+    if chunk_size < 1:
+        raise ValueError("chunk_size must be >= 1")
+    digits = digits_or_frames
+    word_bytes = word.encode("ascii")
+    searched = len(digits) // 2
+    # Search all of frame A before frame B, preserving the original priority.
+    for name, offset in (("A", 0), ("B", 1)):
+        first, count, _frame_length = _search_word_in_digit_frame(
+            digits, offset, word_bytes, chunk_size
+        )
+        if first is not None:
+            return Match(
+                "letters",
+                word,
+                True,
+                position=first + 1,
+                digit_pos=offset + 2 * first + 1,
+                frame=name,
+                indices=np.arange(first, first + len(word), dtype=np.int64),
+                count=count,
                 searched=searched,
                 expected=expected,
             )

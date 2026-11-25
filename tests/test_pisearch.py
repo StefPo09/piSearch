@@ -26,6 +26,10 @@ PI_50 = "14159265358979323846264338327950288419716939937510"
 _APP = QApplication.instance() or QApplication([])
 
 
+def _digits_for_letters(text):
+    return "".join(f"{ord(letter) - ord('A'):02d}" for letter in text)
+
+
 def test_digit_choices_reach_one_billion():
     assert DIGIT_CHOICES[-1] == 1_000_000_000
     assert DIGIT_CHOICES == sorted(set(DIGIT_CHOICES))
@@ -119,15 +123,63 @@ def test_letter_mapping_and_positions():
     assert frames["A"][:4] == "".join(chr(65 + int(d[i : i + 2]) % 26) for i in (0, 2, 4, 6))
     assert frames["B"][:2] == "".join(chr(65 + int(d[i : i + 2]) % 26) for i in (1, 3))
     word = frames["A"][100:104]
-    m = S.search_word(frames, word)
+    m = S.search_word(d, word)
     assert m.found and m.digit_pos <= 2 * 100 + 1
     assert m.expected == 26 ** 4 * 2
 
 
+def test_word_search_finds_match_past_letter_preview_limit():
+    digit_prefix = "00" * 100_000
+    digits = digit_prefix + _digits_for_letters("PIE") + "00"
+
+    match = S.search_word(digits, "PIE", chunk_size=16_384)
+
+    assert match.found
+    assert (match.frame, match.position, match.digit_pos) == ("A", 100_001, 200_001)
+    assert match.searched == len(digits) // 2
+
+
+def test_word_search_finds_matches_crossing_chunk_boundaries():
+    digits = _digits_for_letters("ABCDE")
+
+    match = S.search_word(digits, "CDE", chunk_size=4)
+
+    assert match.found
+    assert (match.frame, match.position, match.digit_pos) == ("A", 3, 5)
+
+
+def test_word_search_counts_overlapping_occurrences():
+    match = S.search_word(_digits_for_letters("AAAAA"), "AAA", chunk_size=2)
+
+    assert match.found
+    assert (match.position, match.count) == (1, 3)
+
+
+def test_word_search_falls_back_to_second_frame():
+    match = S.search_word("7485260574", "WAI", chunk_size=2)
+
+    assert match.found
+    assert (match.frame, match.position, match.digit_pos) == ("B", 1, 2)
+
+
+def test_word_match_beyond_preview_navigates_to_digit_pairs():
+    digits = "00" * 100_000 + _digits_for_letters("PIE") + "00"
+    window = MainWindow()
+    window.canvas.set_data(digits)
+    match = S.search_word(digits, "PIE", chunk_size=16_384)
+
+    window.show_result(match)
+
+    assert window.canvas.mode == Mode.NUMBERS
+    assert window.canvas.highlight is not None
+    assert window.canvas.highlight.kind == "digits"
+    assert window.canvas.highlight.indices.tolist() == list(range(200_000, 200_006))
+    assert "Beyond the letter preview" in window.card.body.text()
+
+
 def test_not_found_expected_depth():
     d = compute_pi_digits(5000)
-    frames = S.build_letter_frames(d)
-    m = S.search_word(frames, "SPACE")
+    m = S.search_word(d, "SPACE")
     assert (not m.found) and m.expected == 23_762_752
 
 
@@ -144,13 +196,12 @@ def test_shape_search():
 def test_frame_a_has_priority():
     # values taken from the original demo (2,000,000 digits)
     d = compute_pi_digits(2_000_000)
-    frames = S.build_letter_frames(d)
-    pie = S.search_word(frames, "PIE")
+    pie = S.search_word(d, "PIE")
     assert (pie.frame, pie.position, pie.digit_pos) == ("A", 10_962, 21_923)
-    cat = S.search_word(frames, "CAT")
-    assert (cat.frame, cat.position, cat.digit_pos, cat.count) == ("A", 22_731, 45_461, 4)
-    nate = S.search_word(frames, "NATE")
-    assert (nate.frame, nate.position) == ("B", 84_252)
-    assert S.search_word(frames, "MATH").position == 91_682
+    cat = S.search_word(d, "CAT")
+    assert (cat.frame, cat.position, cat.digit_pos) == ("A", 22_731, 45_461)
+    nate = S.search_word(d, "NATE")
+    assert (nate.frame, nate.position, nate.digit_pos) == ("A", 161_942, 323_883)
+    assert S.search_word(d, "MATH").position == 91_682
     assert S.search_digits(d, "05111995").position == 875_183
     assert S.search_digits(d, "3773894514").position == 1_193_680
