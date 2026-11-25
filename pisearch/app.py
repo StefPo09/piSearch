@@ -26,6 +26,7 @@ class PiWorker(QThread):
     progress = Signal(float, str)
     done = Signal(str)
     failed = Signal(str)
+    cancelled = Signal()
 
     def __init__(self, n_digits: int):
         super().__init__()
@@ -42,9 +43,11 @@ class PiWorker(QThread):
             self.progress.emit(frac, msg)
 
         try:
-            self.done.emit(compute_pi_digits(self.n, cb))
+            self.done.emit(
+                compute_pi_digits(self.n, cb, cancel_check=lambda: self._cancel)
+            )
         except Cancelled:
-            pass
+            self.cancelled.emit()
         except Exception as exc:  # pragma: no cover
             self.failed.emit(str(exc))
 
@@ -67,11 +70,13 @@ class MainWindow(QMainWindow):
         self.toolbar = self.explorer.toolbar
         self.card = self.explorer.card
         self.worker: Optional[PiWorker] = None
+        self._cancel_requested = False
         self.recorder = Recorder(self.canvas, RECORDINGS_DIR)
         self.recorder.saved.connect(self._on_recording_saved)
         self.recorder.limitReached.connect(self._stop_recording_from_limit)
 
         self.start.computeRequested.connect(self.compute)
+        self.start.cancelRequested.connect(self.cancel_compute)
         self.explorer.tabs.modeChanged.connect(self.on_tab)
         self.toolbar.searchRequested.connect(self.on_search)
         self.toolbar.shapeClicked.connect(self.on_shape)
@@ -90,14 +95,31 @@ class MainWindow(QMainWindow):
             return
         self.start.set_busy(True)
         self.start.set_message("")
+        self._cancel_requested = False
         self.worker = PiWorker(n_digits)
-        self.worker.progress.connect(self.start.set_progress)
+        self.worker.progress.connect(self._on_progress)
         self.worker.done.connect(self._on_computed)
         self.worker.failed.connect(self._on_failed)
+        self.worker.cancelled.connect(self._on_cancelled)
         self.worker.start()
+
+    def _on_progress(self, fraction: float, text: str) -> None:
+        if not self._cancel_requested:
+            self.start.set_progress(fraction, text)
+
+    def cancel_compute(self) -> None:
+        if self.worker is None or self._cancel_requested:
+            return
+        self._cancel_requested = True
+        self.start.cancel_btn.setEnabled(False)
+        self.start.set_message("CANCELLING…")
+        self.worker.cancel()
 
     def _on_computed(self, digits: str) -> None:
         requested = self.worker.n if self.worker is not None else None
+        if self._cancel_requested:
+            self._finish_cancelled()
+            return
         self._join_worker()
         self.start.set_busy(False)
         if requested is None or not has_expected_digit_count(digits, requested):
@@ -122,7 +144,20 @@ class MainWindow(QMainWindow):
     def _on_failed(self, msg: str) -> None:
         self._join_worker()
         self.start.set_busy(False)
+        if self._cancel_requested:
+            self._cancel_requested = False
+            self.start.set_message("CANCELLED")
+            return
         self.start.set_message(f"ERROR · {msg}", error=True)
+
+    def _on_cancelled(self) -> None:
+        self._finish_cancelled()
+
+    def _finish_cancelled(self) -> None:
+        self._join_worker()
+        self.start.set_busy(False)
+        self._cancel_requested = False
+        self.start.set_message("CANCELLED")
 
     def _join_worker(self) -> None:
         if self.worker is not None:

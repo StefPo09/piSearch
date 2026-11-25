@@ -29,7 +29,9 @@ python main.py --digits 2000000   # skip the start screen
   exceed currently available RAM, reserving 1 GiB for the operating system.
   The estimate is deliberately conservative, not a guarantee; Windows may still
   use its page file. If RAM cannot be detected, computations are limited to
-  100,000 digits. Number/date searches scan the full computed digit string.
+  100,000 digits. Press CANCEL to stop a running computation; cancellation waits
+  for the current uninterruptible big-integer operation to finish. Number/date
+  searches scan the full computed digit string.
 * **Tabs** - 01 Numbers, 02 Letters, 03 Colors, 04 Black & White.
 * **Mouse** - drag to pan, wheel to zoom, double-click to zoom in. Keys: arrows, `+`/`-`, Home.
 * **Search** - `ANY NUMBER` (digits), `DATE` (DD/MM/YYYY -> `DDMMYYYY`), `WORD` (letters tab).

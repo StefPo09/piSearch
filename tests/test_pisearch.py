@@ -2,10 +2,12 @@ import os
 import sys
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from pisearch.pi_compute import compute_pi_digits, has_expected_digit_count
+from pisearch.app import PiWorker
+from pisearch.pi_compute import Cancelled, compute_pi_digits, has_expected_digit_count
 from pisearch.resources import (
     MEMORY_RESERVE_BYTES,
     UNKNOWN_MEMORY_MAX_DIGITS,
@@ -45,6 +47,23 @@ def test_computed_output_must_match_requested_digit_count():
     assert has_expected_digit_count("12345", 5)
     assert not has_expected_digit_count("1234", 5)
     assert not has_expected_digit_count("123456", 5)
+
+
+def test_pi_computation_supports_cooperative_cancellation():
+    with pytest.raises(Cancelled):
+        compute_pi_digits(1000, cancel_check=lambda: True)
+
+
+def test_worker_emits_cancelled_without_emitting_partial_digits():
+    worker = PiWorker(1000)
+    events = []
+    worker.done.connect(lambda _digits: events.append("done"))
+    worker.cancelled.connect(lambda: events.append("cancelled"))
+
+    worker.cancel()
+    worker.run()
+
+    assert events == ["cancelled"]
 
 
 def test_known_tail_1000():

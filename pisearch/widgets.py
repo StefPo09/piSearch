@@ -55,6 +55,7 @@ class _ThinProgress(QWidget):
 
 class StartPage(QWidget):
     computeRequested = Signal(int)
+    cancelRequested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -101,11 +102,16 @@ class StartPage(QWidget):
         self.btn.setFont(theme.mono_font(10, bold=True, spacing=1.8))
         self.btn.setCursor(Qt.PointingHandCursor)
         self.btn.clicked.connect(lambda: self.computeRequested.emit(self.combo.currentData()))
+        self.cancel_btn = _ghost("CANCEL")
+        self.cancel_btn.setObjectName("cancelComputeBtn")
+        self.cancel_btn.clicked.connect(self.cancelRequested)
+        self.cancel_btn.hide()
         ctl = QHBoxLayout()
         ctl.setSpacing(10)
         ctl.addStretch(1)
         ctl.addWidget(self.combo)
         ctl.addWidget(self.btn)
+        ctl.addWidget(self.cancel_btn)
         ctl.addStretch(1)
 
         resource_note = QLabel("LARGE COUNTS NEED SUBSTANTIAL MEMORY AND COMPUTE TIME")
@@ -129,6 +135,8 @@ class StartPage(QWidget):
     def set_busy(self, busy: bool) -> None:
         self.btn.setEnabled(not busy)
         self.combo.setEnabled(not busy)
+        self.cancel_btn.setEnabled(busy)
+        self.cancel_btn.setVisible(busy)
         if not busy:
             self.bar.set_value(0)
 

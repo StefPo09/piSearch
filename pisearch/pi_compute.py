@@ -68,7 +68,11 @@ def has_expected_digit_count(digits: str, expected: int) -> bool:
     return len(digits) == expected
 
 
-def compute_pi_digits(n_digits: int, progress: Optional[ProgressCb] = None) -> str:
+def compute_pi_digits(
+    n_digits: int,
+    progress: Optional[ProgressCb] = None,
+    cancel_check: Optional[Callable[[], bool]] = None,
+) -> str:
     """Return the first ``n_digits`` decimals of pi (without the leading '3').
 
     ``progress(fraction, message)`` is called regularly; raise ``Cancelled``
@@ -78,29 +82,40 @@ def compute_pi_digits(n_digits: int, progress: Optional[ProgressCb] = None) -> s
         raise ValueError("n_digits must be >= 1")
     report = progress or (lambda f, m: None)
 
+    def check_cancelled() -> None:
+        if cancel_check and cancel_check():
+            raise Cancelled()
+
     guard = 12
     prec = n_digits + guard
     terms = int(prec / _DIGITS_PER_TERM) + 2
     done = [0]
     step = max(1, terms // 200)
+    cancel_step = max(1, min(step, 4096))
 
     def tick(k: int) -> None:
         done[0] += k
+        if done[0] % cancel_step == 0:
+            check_cancelled()
         if done[0] % step == 0 or done[0] == terms:
             report(0.85 * done[0] / terms, "binary splitting")
 
     report(0.0, "binary splitting")
     _p, q, t = _bs(0, terms, tick)
 
+    check_cancelled()
     report(0.86, "square root")
     one = mpz(10) ** prec
     sqrt_c = _isqrt(mpz(10005) * one * one)
 
+    check_cancelled()
     report(0.93, "final division")
     pi_scaled = (q * 426880 * sqrt_c) // t  # pi * 10**prec
 
+    check_cancelled()
     report(0.97, "converting to text")
     s = str(pi_scaled)
+    check_cancelled()
     report(1.0, "done")
     # s == "3" + decimals
     return s[1 : 1 + n_digits]
